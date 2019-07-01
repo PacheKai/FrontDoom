@@ -62,6 +62,15 @@ class WADListItem(PyQt5.QtGui.QStandardItem):
             return True
         else:
             return False
+            
+class WADItem:
+    def __init__(self, path, cat = "Unsorted"):
+        super().__init__()
+        self.path = path
+        self.cat = cat
+        
+    def name(self):
+        return os.path.basename(path)
         
 
 # ================================================================
@@ -82,22 +91,23 @@ def saveWADList():
     except OSError:
         print('Couldn\'t write WAD list to file.')
 
-# Saving this for caching if need arises
 def loadWADList():
+    """ Loads list of "installed" WADs.
+    
+    Function reads JSON file with list of WAD files which consists of:
+    l[0] - hash of file
+    l[1] - file path
+    l[2] - assigned category
+    """
     try:
         with open('WADList.dat', 'r') as file:
-            loaded_list = json.load(file)
-        for item in loaded_list:
-            temp = WADListItem(*item)
-            if item[0] in config_current['-file']:
-                print(item[0], " should be checked!")
-                temp.setCheckState(QtCore.Qt.Checked)
-            if item[2]:
-                iwad_model.appendRow(temp)
-                if item[0] == config_current['-iwad']:
-                    config_current['-iwad_index'] = iwad_model.rowCount()-1
+            temp_list = json.load(file)
+        for item in temp_list:
+            if os.path.exists(item[1]):
+                wad_list[item[0]] = WADItem(item[1], item[2])
+                # Calculate hashes here
             else:
-                wad_model.appendRow(temp)
+                print ("{0} - file does not exist.".format(item[1]))
     except OSError:
         print('Couldn\'t load WAD list from file.')
         
@@ -360,6 +370,10 @@ gzShortcuts = {'$PROGDIR': prefs['General']['gz_path'],
                 '$DOOMWADDIR': os.environ['DOOMWADDIR'] if 'DOOMWADDIR' in os.environ else '',
                 '$HOME': os.environ['HOME'] if 'HOME' in os.environ else '',
                 '.': prefs['General']['gz_path']}
+                
+# Saved mod list
+wad_list = {}
+
 
 # Filesystem stuff
 iwad_model = PyQt5.QtGui.QStandardItemModel()
