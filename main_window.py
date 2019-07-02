@@ -9,7 +9,6 @@ import PyQt5
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 import form
-
 # ================================================================
 # Constants
 # ================================================================
@@ -23,41 +22,26 @@ elif sys.platform.startswith('linux'):
 else:
     print('Unsupported OS.')
     sys.exit()
-
+    
 # ================================================================
 # Classes
 # ================================================================        
 class WADListItem(PyQt5.QtGui.QStandardItem):
     """List item class.
     
-    Contains various useful info about particular WAD file.
-    name - name of file, displayed in lists.
-    path - full path to file.
-    type - special propety, shows if item is directory (0) or file (1).
-    cat - category, used in category view.
+    Links to relevant item from list of WADs.
     """
-    def __init__(self, name, path, type, cat = "All WADs"):
-        super().__init__()
-        self.setText(name)
-        self.path = path
-        self.type = type
-        self.cat = cat
-        self.setEditable(False)
-        if type:
-            self.setCheckable(True)
-            self.setIcon(icons['wad'])
-        else:
-            self.setCheckable(False)
-            self.setIcon(icons['dir'])
-            
-    def copy(self):
-        """Returns copy of caller.
     
-        Used specifically copy is needed.    
-        """
-        return WADListItem(self.text(), self.path, self.type, self.cat)
+    def __init__(self, wad):
+        super().__init__()
+        selt.wad = wad
+        self.setText(wad.name())        
         
     def __lt__(a, b):
+        """ "Less than" function.
+        
+        Required by Qt to do sorting in lists.    
+        """
         if a.text() < b.text():
             return True
         else:
@@ -76,40 +60,52 @@ class WADItem:
 # ================================================================
 # Functions
 # ================================================================
-# Saving this for caching if need arises
-def saveWADList():
+def saveWADList(filename, dictionary):
+    """ Saves list of WADItem objects.
+    
+    Function writes JSON file with list of WAD files which consists of:
+    hash - hash of file
+    item.path - file path
+    item.cat - assigned category
+    
+    Args:
+    filename - where to save
+    dictionary - what to save
+    
+    """
     temp = []
-    for i in range(wad_model.rowCount()):
-        item = wad_model.item(i)
-        temp.append([item.text(), item.path, item.type])
-    for i in range(iwad_model.rowCount()):
-        item = iwad_model.item(i)
-        temp.append([item.text(), item.path, item.type])
+    for hash, item in dictionary.items():
+        temp.append([hash, item.path, item.cat])
     try:
-        with open('WADList.dat', 'w') as file:
+        with open(filename, 'w') as file:
             json.dump(temp, file)
     except OSError:
-        print('Couldn\'t write WAD list to file.')
+        print('Couldn\'t write WAD list to file {0}.'.format(filename))
 
-def loadWADList():
+def loadWADList(filename, dictionary):
     """ Loads list of "installed" WADs.
     
     Function reads JSON file with list of WAD files which consists of:
     l[0] - hash of file
     l[1] - file path
     l[2] - assigned category
+    
+    Args:
+    filename - from where to load
+    dictionary - what to load
     """
     try:
-        with open('WADList.dat', 'r') as file:
+        with open(filename, 'r') as file:
             temp_list = json.load(file)
         for item in temp_list:
             if os.path.exists(item[1]):
-                wad_list[item[0]] = WADItem(item[1], item[2])
+                dictionary[item[0]] = WADItem(item[1], item[2])
                 # Calculate hashes here
             else:
                 print ("{0} - file does not exist.".format(item[1]))
     except OSError:
-        print('Couldn\'t load WAD list from file.')
+        print('Couldn\'t load WAD list from file {0}.'.format(filename))
+    return
         
 def loadCats():
     """ Everything is better with cats.
@@ -352,10 +348,10 @@ def loadConfig(filename):
 # ================================================================
 # Initializing
 # ================================================================
+
 # Qt-specifics
-app = QtWidgets.QApplication(sys.argv)
-icons = {'dir': QtGui.QIcon('dir.png'),
-            'wad': QtGui.QIcon('file.png')}
+#icons = {'dir': QtGui.QIcon('dir.png'),
+#            'wad': QtGui.QIcon('file.png')}
 
 # Preferences file
 print('Initializing...')
@@ -373,29 +369,35 @@ gzShortcuts = {'$PROGDIR': prefs['General']['gz_path'],
                 
 # Saved mod list
 wad_list = {}
-
+loadWADList('WADList.dat', wad_list)
+iwad_list = {}
+loadWADList('IWADList.dat', iwad_list)
+print(iwad_list, "ping")
 
 # Filesystem stuff
+# List of IWADs known by application
 iwad_model = PyQt5.QtGui.QStandardItemModel()
+for item in iwad_list.values():
+    iwad_model.appendRow(WADListItem(item))
+
 wad_model = PyQt5.QtGui.QStandardItemModel()
-cat_model = PyQt5.QtGui.QStandardItemModel()
+#cat_model = PyQt5.QtGui.QStandardItemModel()
 
 # Last game config file
 config_current = {'-iwad': None, '-iwad_index': 'a', '-file': []}
 loadConfig('lastconfig.dat')
 
 # Categories
-cats = {}
-dtemp = WADListItem('All WADs', '', 0, 'Dog')
-cat_model.appendRow(dtemp)
-cat_model_contents = {'All WADs': dtemp}
-loadCats()
+#cats = {}
+#dtemp = WADListItem('All WADs', '', 0, 'Dog')
+#cat_model.appendRow(dtemp)
+#cat_model_contents = {'All WADs': dtemp}
+#loadCats()
 
 #for line in prefs['WADCats']['cats'].split('\n'):
 #    Cats[line] = WADListItem(line, '', 0)
 
-refreshFolders()
-#loadWADList()
+#refreshFolders()
         
 # Quick exit
 #sys.exit()
@@ -406,14 +408,14 @@ print('Initializing done.')
 # Main window class, clean up later
 class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
     global config_current
-    global cats
+    global wad_list
+    global iwad_list
     def __init__(self, parent = None):
         print('Initializing main window...')
         print(config_current)
         QtWidgets.QMainWindow.__init__(self, parent)
         self.setupUi(self)
         self.last_error_msg = None
-
         actPrefs = QtWidgets.QAction('Preferences...', self)
         actPrefs.triggered.connect(self.prefDialog)
         actRefresh = QtWidgets.QAction('Refresh WAD list', self)
@@ -463,11 +465,11 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         #self.load_list.setModel(self.load_wad_model)
         #self.load_list.setSelectionMode(0)
         self.iwad_select.setModel(iwad_model)
-        self.iwad_select.setCurrentIndex(config_current['-iwad_index'])
+        #self.iwad_select.setCurrentIndex(config_current['-iwad_index'])
         
         self.wad_list.setModel(wad_model)
-        self.cat_list.setModel(cat_model)
-        self.cat_list.customContextMenuRequested.connect(self.wadMenu)
+        #self.cat_list.setModel(cat_model)
+        #self.cat_list.customContextMenuRequested.connect(self.wadMenu)
 
         
         
@@ -738,10 +740,11 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
     def closeEvent(self, event):
         print('Exiting...')
         saveConfig('lastconfig.dat')
-        saveCats()
+        #saveCats()
         with open('prefs.ini', 'w') as file:
             prefs.write(file)
-        #saveWADList()
+        saveWADList('WADList.dat', wad_list)
+        saveWADList('IWADList.dat', iwad_list)
         event.accept()
 
     def clExit(self):
@@ -749,6 +752,7 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         
 # ================================================================
 if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
     myWindow = MyWindowClass(None)
     myWindow.show()
     app.exec_()

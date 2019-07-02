@@ -16,30 +16,30 @@ class Ui_MainWindow(object):
         self.horizontal_lists = QtWidgets.QHBoxLayout()
         self.vertical_main.addLayout(self.horizontal_lists)
         
-        # Third block is list of all detected PWADs in folders we scan
+        # Left block is tabbed list WADs
         self.tabs = QtWidgets.QTabWidget(self.centralwidget)
-        self.tab_folders = QtWidgets.QWidget()
-        self.tab_folders_horizontal = QtWidgets.QHBoxLayout()
+        self.tab_installed = QtWidgets.QWidget()
+        self.tab_installed_horizontal = QtWidgets.QHBoxLayout()
         
         self.wad_list = QtWidgets.QTreeView(self.centralwidget)
         self.wad_list.setUniformRowHeights(True)
         #self.wad_list.setHeaderHidden(True)
-        self.tab_folders_horizontal.addWidget(self.wad_list)
+        self.tab_installed_horizontal.addWidget(self.wad_list)
         
-        self.tab_folders.setLayout(self.tab_folders_horizontal)
-        self.tabs.addTab(self.tab_folders, 'Folder view')
+        self.tab_installed.setLayout(self.tab_installed_horizontal)
+        self.tabs.addTab(self.tab_installed, 'Installed WADs')
         
-        self.tab_cats = QtWidgets.QWidget()
-        self.tab_cats_horizontal = QtWidgets.QHBoxLayout()
+        self.tab_folders = QtWidgets.QWidget()
+        self.tab_folders_horizontal = QtWidgets.QHBoxLayout()
         
         self.cat_list = QtWidgets.QTreeView(self.centralwidget)
         self.cat_list.setUniformRowHeights(True)
         self.cat_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         #self.wad_list.setHeaderHidden(True)
-        self.tab_cats_horizontal.addWidget(self.cat_list)
+        self.tab_folders_horizontal.addWidget(self.cat_list)
         
-        self.tab_cats.setLayout(self.tab_cats_horizontal)
-        self.tabs.addTab(self.tab_cats, 'Category view')
+        self.tab_folders.setLayout(self.tab_folders_horizontal)
+        self.tabs.addTab(self.tab_folders, 'Folder view')
         
         self.horizontal_lists.addWidget(self.tabs)
         
