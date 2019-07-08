@@ -1,7 +1,7 @@
 # ================================================================
 # Imports
 # ================================================================
-import sys, os, subprocess, configparser, json, getpass, zipfile#, time, urllib.request
+import sys, os, subprocess, configparser, json, getpass, zipfile, hashlib#, time, urllib.request
 from functools import partial
 from timeit import default_timer as timer
 
@@ -34,7 +34,7 @@ class WADListItem(PyQt5.QtGui.QStandardItem):
     
     def __init__(self, wad):
         super().__init__()
-        selt.wad = wad
+        self.wad = wad
         self.setText(wad.name())        
         
     def __lt__(a, b):
@@ -54,7 +54,7 @@ class WADItem:
         self.cat = cat
         
     def name(self):
-        return os.path.basename(path)
+        return os.path.basename(self.path)
         
 
 # ================================================================
@@ -99,10 +99,12 @@ def loadWADList(filename, dictionary):
             temp_list = json.load(file)
         for item in temp_list:
             if os.path.exists(item[1]):
-                dictionary[item[0]] = WADItem(item[1], item[2])
-                # Calculate hashes here
+                if item[0] == fileToHash(item[1]):
+                    dictionary[item[0]] = WADItem(item[1], item[2])
+                else:
+                    print("{0} - incorrect checksum.")
             else:
-                print ("{0} - file does not exist.".format(item[1]))
+                print("{0} - file does not exist.".format(item[1]))
     except OSError:
         print('Couldn\'t load WAD list from file {0}.'.format(filename))
     return
@@ -307,6 +309,11 @@ def attachToPort(path):
         print("Couldn\'t find source port's config file.")
         return
         
+def fileToHash(filename):
+    md5 = hashlib.md5()
+    md5.update(open(filename, 'rb').read())
+    return md5.hexdigest()
+        
 def saveConfig(filename):
     """ Writes game-specific configuration into JSON.
     
@@ -381,6 +388,8 @@ for item in iwad_list.values():
     iwad_model.appendRow(WADListItem(item))
 
 wad_model = PyQt5.QtGui.QStandardItemModel()
+for item in wad_list.values():
+    wad_model.appendRow(WADListItem(item))
 #cat_model = PyQt5.QtGui.QStandardItemModel()
 
 # Last game config file
@@ -420,6 +429,8 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         actPrefs.triggered.connect(self.prefDialog)
         actRefresh = QtWidgets.QAction('Refresh WAD list', self)
         actRefresh.triggered.connect(refreshFolders)
+        actAdd = QtWidgets.QAction('Add new WAD file...', self)
+        actAdd.triggered.connect(self.addDialog)
         #actLogin = QtWidgets.QAction(QIcon('icon_login.png'), 'Log in', self)
         #actLogin.triggered.connect(self.loginDialog)
         #actLogout = QtWidgets.QAction(QIcon('icon_logout.png'), 'Log out', self)
@@ -437,6 +448,7 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         #self.toolbar.addAction(self.actUsername)
         #self.toolbar.addAction(self.actCart)
 
+        self.menuFile.addAction(actAdd)
         self.menuFile.addAction(actRefresh)
         self.menuFile.addSeparator()
         self.menuFile.addAction(actPrefs)
@@ -506,7 +518,14 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
             self.openItem(item)
         elif action == sortItems:
             self.cat_list.model().sort(0)
-    
+
+    def addDialog(self):
+        # getOpenFileName returns tuple (filename, filter)
+        temp = os.path.normpath(QtWidgets.QFileDialog.getOpenFileName(self, "Select WAD file")[0])
+        hash = fileToHash(temp)
+        wad_list[hash] = WADItem(temp)
+        wad_model.appendRow(WADListItem(wad_list[hash]))
+            
     def catDialog(self):
         dc = QtWidgets.QDialog(parent = self)
         dc.setWindowTitle('Add new category...')
