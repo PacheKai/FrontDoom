@@ -312,8 +312,8 @@ def attachToPort(path):
 def fileToHash(filename):
     md5 = hashlib.md5()
     md5.update(open(filename, 'rb').read())
-    return md5.hexdigest()
-        
+    return md5.hexdigest()    
+    
 def saveConfig(filename):
     """ Writes game-specific configuration into JSON.
     
@@ -381,20 +381,26 @@ iwad_list = {}
 loadWADList('IWADList.dat', iwad_list)
 print(iwad_list, "ping")
 
+# Last game config file
+config_current = {'-iwad': None, '-file': []}
+loadConfig('lastconfig.dat')
+
 # Filesystem stuff
 # List of IWADs known by application
 iwad_model = PyQt5.QtGui.QStandardItemModel()
 for item in iwad_list.values():
-    iwad_model.appendRow(WADListItem(item))
+    temp = WADListItem(item)
+    iwad_model.appendRow(temp)
 
 wad_model = PyQt5.QtGui.QStandardItemModel()
 for item in wad_list.values():
-    wad_model.appendRow(WADListItem(item))
+    temp = WADListItem(item)
+    temp.setCheckable(True)
+    if temp.wad.path in config_current['-file']:
+        temp.setCheckState(QtCore.Qt.Checked)
+    wad_model.appendRow(temp)
 #cat_model = PyQt5.QtGui.QStandardItemModel()
 
-# Last game config file
-config_current = {'-iwad': None, '-iwad_index': 'a', '-file': []}
-loadConfig('lastconfig.dat')
 
 # Categories
 #cats = {}
@@ -431,6 +437,8 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         actRefresh.triggered.connect(refreshFolders)
         actAdd = QtWidgets.QAction('Add new WAD file...', self)
         actAdd.triggered.connect(self.addDialog)
+        actAddI = QtWidgets.QAction('Add new IWAD file...', self)
+        actAddI.triggered.connect(self.addIDialog)
         #actLogin = QtWidgets.QAction(QIcon('icon_login.png'), 'Log in', self)
         #actLogin.triggered.connect(self.loginDialog)
         #actLogout = QtWidgets.QAction(QIcon('icon_logout.png'), 'Log out', self)
@@ -449,6 +457,7 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         #self.toolbar.addAction(self.actCart)
 
         self.menuFile.addAction(actAdd)
+        self.menuFile.addAction(actAddI)
         self.menuFile.addAction(actRefresh)
         self.menuFile.addSeparator()
         self.menuFile.addAction(actPrefs)
@@ -477,7 +486,10 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         #self.load_list.setModel(self.load_wad_model)
         #self.load_list.setSelectionMode(0)
         self.iwad_select.setModel(iwad_model)
-        #self.iwad_select.setCurrentIndex(config_current['-iwad_index'])
+        #self.iwad_select.setCurrentIndex()
+        for i in range(0, iwad_model.rowCount()):
+            if iwad_model.item(i).wad.path == config_current['-iwad']:
+                self.iwad_select.setCurrentIndex(iwad_model.item(i).row())
         
         self.wad_list.setModel(wad_model)
         #self.cat_list.setModel(cat_model)
@@ -521,10 +533,27 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
 
     def addDialog(self):
         # getOpenFileName returns tuple (filename, filter)
-        temp = os.path.normpath(QtWidgets.QFileDialog.getOpenFileName(self, "Select WAD file")[0])
+        temp = QtWidgets.QFileDialog.getOpenFileName(self, "Select WAD file", prefs['WADPaths']['path'].split('\n')[0], 'WAD files (*.wad *.pk3 *.pk7 *.zip)')[0]
+        if not temp:
+            return
+        temp = os.path.normpath(temp)
         hash = fileToHash(temp)
         wad_list[hash] = WADItem(temp)
-        wad_model.appendRow(WADListItem(wad_list[hash]))
+        item = WADListItem(wad_list[hash])
+        item.setCheckable(True)
+        wad_model.appendRow(item)
+        
+    def addIDialog(self):
+        # getOpenFileName returns tuple (filename, filter)
+        temp = QtWidgets.QFileDialog.getOpenFileName(self, "Select IWAD file", prefs['WADPaths']['path'].split('\n')[0], 'IWAD files (*.wad *.pk3 *.ipk3 *.pk7 *.ipk7 *.zip)')[0]
+        if not temp:
+            return
+        temp = os.path.normpath(temp)
+        hash = fileToHash(temp)
+        iwad_list[hash] = WADItem(temp)
+        iwad_model.appendRow(WADListItem(iwad_list[hash]))
+        if len(iwad_list) == 1:
+            config_current['-iwad'] = iwad_list[hash].path
             
     def catDialog(self):
         dc = QtWidgets.QDialog(parent = self)
@@ -748,13 +777,13 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
     def checkingItems(self, item):
         if item.checkState():
             print('Added ', item)
-            config_current['-file'].append(item.text())
+            config_current['-file'].append(item.wad.path)
         if not item.checkState():
             print('Removed ', item)
-            config_current['-file'].remove(item.text())
+            config_current['-file'].remove(item.wad.path)
             
     def iwadChanged(self, what):
-        config_current['-iwad'] = iwad_model.item(what).text()
+        config_current['-iwad'] = iwad_model.item(what).wad.path
         
     def closeEvent(self, event):
         print('Exiting...')
