@@ -14,6 +14,13 @@ import form
 # ================================================================
 EXTS = ['.wad', '.pk3', '.pk7', '.ipk3', '.zip']
 LUMPS = ['acs', 'colormaps', 'filter', 'flats', 'graphics', 'hires', 'maps', 'music', 'patches', 'sounds', 'sprites', 'textures', 'voices', 'voxels']
+LOGOS = {'doom.wad': "images/doom.png",
+            'doom2.wad':"images/doom2.png",
+            'heretic.wad':"images/heretic.png",
+            'hexen.wad':"images/hexen.png",
+            'strife1.wad':"images/strife.png",
+            'chex.wad':"images/chexquest.png",
+            'def':"images/no_logo.png"}
 
 if sys.platform.startswith('win32'):
     PLATFORM = 'WIN'
@@ -490,6 +497,10 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
         for i in range(0, iwad_model.rowCount()):
             if iwad_model.item(i).wad.path == config_current['-iwad']:
                 self.iwad_select.setCurrentIndex(iwad_model.item(i).row())
+                try:
+                    self.iwad_label.setPixmap(QtGui.QPixmap(LOGOS[iwad_model.item(i).text().lower()]))
+                except KeyError:
+                    self.iwad_label.setPixmap(QtGui.QPixmap(LOGOS['def']))
         
         self.wad_list.setModel(wad_model)
         #self.cat_list.setModel(cat_model)
@@ -784,6 +795,7 @@ class MyWindowClass(QtWidgets.QMainWindow, form.Ui_MainWindow):
             
     def iwadChanged(self, what):
         config_current['-iwad'] = iwad_model.item(what).wad.path
+        self.iwad_label.setPixmap(QtGui.QPixmap(LOGOS[iwad_model.item(what).text().lower()]))
         
     def closeEvent(self, event):
         print('Exiting...')
